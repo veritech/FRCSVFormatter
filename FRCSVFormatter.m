@@ -1,7 +1,7 @@
 //
-//  CSVLogFormatter.m
+// FRCSVLogFormatter.m
 //
-// Copyright (c) 2011, Jonathan Dalrymple
+// Copyright (c) 2014, Jonathan Dalrymple
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -15,30 +15,25 @@
 
 @interface FRCSVFormatter()
 
--(NSStringEncoding) encoding;
--(NSString*) formatField:(id) anObject;
--(NSString*) formatArray:(NSArray*) aArray;
-
--(NSDateFormatter*) dateFormatter;
--(NSCharacterSet *) illegalCharacters;
+@property (nonatomic,strong) NSDateFormatter *dateFormatter;
+@property (nonatomic,strong) NSCharacterSet *illegalCharacters;
 
 @end
 
 @implementation FRCSVFormatter
 
-+(id)formatter{
-	return [[[FRCSVFormatter alloc] init] autorelease];
++ (id)formatter{
+	return [[FRCSVFormatter alloc] init];
 }
 
 - (id)init {
-	if((self = [super init]))
-	{
+	if((self = [super init])) {
 
 	}
 	return self;
 }
 
--(NSStringEncoding) encoding{
+- (NSStringEncoding)encoding{
 	return NSUTF8StringEncoding;
 }
 
@@ -46,32 +41,28 @@
  *	Return the date formatter
  *
  */
--(NSDateFormatter*) dateFormatter{
+- (NSDateFormatter*)dateFormatter{
+    if(!_dateFormatter){
+		_dateFormatter = [[NSDateFormatter alloc] init];
+		[_dateFormatter setFormatterBehavior:NSDateFormatterBehavior10_4];
+		[_dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss:SSS"];
+	};
 	
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		dateFormatter_ = [[NSDateFormatter alloc] init];
-		[dateFormatter_ setFormatterBehavior:NSDateFormatterBehavior10_4];
-		[dateFormatter_ setDateFormat:@"yyyy-MM-dd HH:mm:ss:SSS"];
-	});
-	
-	return dateFormatter_;
+	return _dateFormatter;
 }
 
 /**
  *	Illegal characters
  *
  */
--(NSCharacterSet *) illegalCharacters{
-	
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
+- (NSCharacterSet *)illegalCharacters{
+    if (!_illegalCharacters){
 		NSMutableCharacterSet * bad = [NSMutableCharacterSet newlineCharacterSet];
-		[bad addCharactersInString:@",\"\\"];
-		illegalCharacters_ = [bad copy];
-	});
+		[bad addCharactersInString:@",\""];
+		_illegalCharacters = [bad copy];
+	};
 	
-	return illegalCharacters_;
+	return _illegalCharacters;
 }
 
 /**
@@ -80,34 +71,36 @@
  *	@param an Object
  *	@return a CSV formatted filed
  */
--(NSString*) formatField:(id) anObject{
+- (NSString*)formatField:(id)anObject{
+	NSMutableString *field = [[anObject description] mutableCopy];
+    
+    if ([field rangeOfCharacterFromSet:[self illegalCharacters]].location != NSNotFound || [field hasPrefix:@"#"]) {
 
-	NSMutableString *field;
+        //Escape quotes
+        [field replaceOccurrencesOfString:@"\""
+                               withString:@"\"\""
+                                  options:NSLiteralSearch
+                                    range:NSMakeRange(0, [field length])
+         ];
 
-	field = [[[anObject description] mutableCopy] autorelease];
+        //Escape back slashes
+//        [field replaceOccurrencesOfString:@"\\"
+//                               withString:@"\\\\"
+//                                  options:NSLiteralSearch
+//                                    range:NSMakeRange(0, [field length])
+//         ];
 
-	if ([field rangeOfCharacterFromSet:[self illegalCharacters]].location != NSNotFound || [field hasPrefix:@"#"]) {
-		
-		[field replaceOccurrencesOfString:@"\"" 
-							   withString:@"\"\"" 
-								  options:NSLiteralSearch 
-									range:NSMakeRange(0, [field length])
-		 ];
-		
-		[field replaceOccurrencesOfString:@"\\" 
-							   withString:@"\\\\" 
-								  options:NSLiteralSearch 
-									range:NSMakeRange(0, [field length])
-		 ];
-		
-		[field insertString:@"\"" 
-					atIndex:0
-		 ];
-		
-		[field appendString:@"\""];
-	}
-	
-	return [[field copy] autorelease];
+        //Prevent double wrapping, ie input string is ""foo"", dont ouput """foo"""
+        if (![[field substringToIndex:1] isEqualToString:@"\""] && ![[field substringFromIndex:(field.length-1)] isEqualToString:@"\""]) {
+            [field insertString:@"\""
+                        atIndex:0
+             ];
+            
+            [field appendString:@"\""];
+        }
+    }
+    
+	return [field copy];
 }
 
 /**
@@ -116,56 +109,47 @@
  *	@param an Array to transform
  *	@return CSV formatted line string
  */
--(NSString*) formatArray:(NSArray*) aArray{
+- (NSString*)formatArray:(NSArray*) aArray{
 	
 	NSMutableArray *formattedValues;
 	
 	formattedValues = [NSMutableArray arrayWithCapacity:[aArray count]];
 	
 	[aArray enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-		
-		[formattedValues addObject:[self formatField:obj]];
-		
-		[pool drain];
+        @autoreleasepool {
+            [formattedValues addObject:[self formatField:obj]];
+        }
 	}];
 
-	return [[formattedValues componentsJoinedByString:@","] stringByAppendingString:@"\n"];
+	return [[formattedValues componentsJoinedByString:@","] stringByAppendingString:@"\r\n"];
 }
 
 #pragma mark - DDLogFormatter protocol methods
 - (NSString *)formatLogMessage:(DDLogMessage *)logMessage {
 	NSString *logLevel;
-	switch (logMessage->logFlag) {
-		case LOG_FLAG_ERROR		:	logLevel = @"Error";	break;
-		case LOG_FLAG_WARN		:	logLevel = @"Warning";	break;
-		case LOG_FLAG_INFO		:	logLevel = @"Info";		break;
+	switch (logMessage.flag) {
+		case DDLogFlagError		:	logLevel = @"Error";	break;
+		case DDLogFlagWarning	:	logLevel = @"Warning";	break;
+		case DDLogFlagInfo		:	logLevel = @"Info";		break;
+        case DDLogFlagDebug     :   logLevel = @"Debug";	break;
+        case DDLogFlagVerbose   :   logLevel = @"Verbose";	break;
 		default					:	logLevel = @"Unknown";	break;
 	}
 	
-	NSString *dateAndTime = [[self dateFormatter] stringFromDate:(logMessage->timestamp)];
-	NSString *logMsg = logMessage->logMsg;
+	NSString *dateAndTime = [self.dateFormatter stringFromDate:(logMessage.timestamp)];
+	NSString *logMsg = logMessage.message;
 	
 	return [self formatArray:[NSArray arrayWithObjects:
 							  dateAndTime,
 							  logLevel,
 							  logMsg,
-							  [logMessage threadID],
-							  [logMessage fileName],
-							  [NSNumber numberWithInteger:logMessage->lineNumber],
+                              logMessage.threadID,
+                              logMessage.fileName,
+							  @(logMessage.line),
 							  nil
 							  ]
 			];
 }
 
-- (void)dealloc {
-	[dateFormatter_ release];
-	dateFormatter_ = nil;
-	
-	[illegalCharacters_ release];
-	illegalCharacters_ = nil;
-	
-	[super dealloc];
-}
 
 @end

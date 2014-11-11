@@ -1,7 +1,7 @@
 //
-//  CSVLogFormatter.h
+//  FRCSVLogFormatter.h
 //
-// Copyright (c) 2011, Jonathan Dalrymple
+// Copyright (c) 2014, Jonathan Dalrymple
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -14,10 +14,7 @@
 #import <Foundation/Foundation.h>
 #import "DDLog.h"
 
-@interface FRCSVFormatter : NSObject <DDLogFormatter> {
-	NSDateFormatter		*dateFormatter_;
-	NSCharacterSet		*illegalCharacters_;
-}
+@interface FRCSVFormatter : NSObject <DDLogFormatter>
 
 +(id) formatter;
 
