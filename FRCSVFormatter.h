@@ -16,6 +16,6 @@
 
 @interface FRCSVFormatter : NSObject <DDLogFormatter>
 
-+(id) formatter;
++(instancetype) formatter;
 
 @end

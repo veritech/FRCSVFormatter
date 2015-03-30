@@ -22,11 +22,11 @@
 
 @implementation FRCSVFormatter
 
-+ (id)formatter{
-	return [[FRCSVFormatter alloc] init];
++ (instancetype)formatter{
+	return [[self alloc] init];
 }
 
-- (id)init {
+- (instancetype)init {
 	if((self = [super init])) {
 
 	}
@@ -37,6 +37,14 @@
 	return NSUTF8StringEncoding;
 }
 
+- (NSString *)dateFormat {
+	return @"yyyy-MM-dd HH:mm:ss:SSS";
+}
+
+- (NSString *)separatorCharacter {
+	return @",";
+}
+
 /**
  *	Return the date formatter
  *
@@ -45,7 +53,7 @@
     if(!_dateFormatter){
 		_dateFormatter = [[NSDateFormatter alloc] init];
 		[_dateFormatter setFormatterBehavior:NSDateFormatterBehavior10_4];
-		[_dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss:SSS"];
+		[_dateFormatter setDateFormat:[self dateFormat]];
 	};
 	
 	return _dateFormatter;
@@ -83,14 +91,6 @@
                                     range:NSMakeRange(0, [field length])
          ];
 
-        //Escape back slashes
-//        [field replaceOccurrencesOfString:@"\\"
-//                               withString:@"\\\\"
-//                                  options:NSLiteralSearch
-//                                    range:NSMakeRange(0, [field length])
-//         ];
-
-        //Prevent double wrapping, ie input string is ""foo"", dont ouput """foo"""
         if (![[field substringToIndex:1] isEqualToString:@"\""] && ![[field substringFromIndex:(field.length-1)] isEqualToString:@"\""]) {
             [field insertString:@"\""
                         atIndex:0
@@ -121,7 +121,7 @@
         }
 	}];
 
-	return [[formattedValues componentsJoinedByString:@","] stringByAppendingString:@"\r\n"];
+	return [[formattedValues componentsJoinedByString:[self separatorCharacter]] stringByAppendingString:@"\r\n"];
 }
 
 #pragma mark - DDLogFormatter protocol methods
